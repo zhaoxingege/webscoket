@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Audio Stream</title>
+</head>
+<body>
+    <h1>ESP32 Audio Stream</h1>
+    <button id="startButton">Start Listening</button>
+
+    <script>
+        let audioContext;
+        let audioWorkletNode;
+        let ws;
+
+        document.getElementById('startButton').addEventListener('click', async () => {
+            // 创建音频上下文
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            await audioContext.audioWorklet.addModule('processor.js');
+            audioWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+
+            audioWorkletNode.connect(audioContext.destination);
+
+            // 连接WebSocket
+            ws = new WebSocket(`ws://${window.location.hostname}/audio`);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    const audioData = new Uint8Array(event.data);
+                    audioWorkletNode.port.postMessage(audioData);
+                }
+            };
+
+            ws.onopen = () => {
+                console.log("WebSocket connected");
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket disconnected");
+            };
+        });
+    </script>
+</body>
+</html>
